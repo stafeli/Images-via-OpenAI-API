@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">  
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DALL·E / GPT-Image-1 Playground</title>
+
+<style>
+  :root{
+    --bg:#272b33; --fg:#e5e9f0; --panel:#323844; --accent:#4c8df6;
+    --border:#3a3f49; --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--fg);display:flex;height:100vh;overflow:hidden}
+
+  /* ---------- sidebar ---------- */
+  #sidebar{
+    width:420px;display:flex;flex-direction:column;gap:16px;
+    background:var(--panel);padding:16px;overflow-y:auto;border-right:1px solid var(--border)
+  }
+  textarea,select,input[type="number"]{
+    padding:6px;border-radius:var(--radius);
+    border:1px solid var(--border);background:var(--bg);color:var(--fg)
+  }
+  textarea{width:100%;min-height:110px;resize:vertical;padding:8px}
+  fieldset{border:1px solid var(--border);padding:12px;border-radius:var(--radius)}
+  legend{padding:0 6px}
+  .options{display:none;flex-direction:column;gap:8px;margin-top:8px}
+  .visible{display:flex}
+  button{padding:10px 14px;border:none;border-radius:var(--radius);
+         background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.6;cursor:not-allowed}
+
+  /* ---------- gallery ---------- */
+  #main{flex:1;display:flex;flex-direction:column;overflow:auto;padding:16px}
+
+
+  /* ---- default grid for multiple images ---- */
+  #gallery {
+    display: grid;
+    gap: 24px;
+    width: 100%;
+    padding: 2vw;
+    justify-content: center;
+    align-content: center;
+    min-height: 0;
+    min-width: 0;
+    height: 90vh;
+    max-height: 90vh;
+    box-sizing: border-box;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    place-items: center;
+  }
+
+  #gallery img {
+    max-width: 40vw;     /* fit max 2 images per row */
+    max-height: 40vh;    /* fit max 2 images per col */
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #1e2128;
+    cursor: pointer;
+  }
+
+  /* single-image flex-center */
+  #gallery.single {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    height: 90vh;
+  }
+  #gallery.single img {
+    max-width: 80vw;
+    max-height: 85vh;
+  }
+
+  /* row mode for tall images */
+  #gallery.row-mode {
+    display: flex !important;
+    gap: 18px;
+    overflow-x: auto;
+    height: 80vh;
+    align-items: center;
+    justify-content: center;
+  }
+  #gallery.row-mode img {
+    height: 80vh;
+    width: auto;
+  }
+
+  /* modal */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.85);
+         display:none;justify-content:center;align-items:center;z-index:1000}
+  #modal img{max-width:92vw;max-height:92vh;border-radius:var(--radius)}
+  #modal .close{position:absolute;top:20px;right:30px;font-size:34px;color:#fff;
+                cursor:pointer;user-select:none}
+
+  /* mobile */
+  @media(max-width:900px){
+    body{flex-direction:column}
+    #sidebar{width:100%;border-right:none;border-bottom:1px solid var(--border)}
+  }
+</style>
+</head>
+
+<body>
+  <!-- ---------- sidebar ---------- -->
+  <aside id="sidebar">
+    <div>
+      <h3>🐢🐢🐢@polepole🐢🐢🐢</h3></br>
+      <h3>Images ... via OpenAI API</h3></br>
+      <h1>Your Prompt:</h1></br>
+      <textarea id="prompt" placeholder="Describe the image you want…"></textarea>
+    </div>
+
+    <fieldset>
+      <legend>Model</legend>
+      <select id="model">
+        <option value="dall-e-2">DALL-E 2</option>
+        <option value="dall-e-3" selected>DALL-E 3</option>
+        <option value="gpt-image-1">GPT-Image-1</option>
+      </select>
+
+      <!-- D2 -->
+      <div id="d2" class="options">
+        <label>Size
+          <select id="d2-size">
+            <option>256x256</option><option>512x512</option>
+            <option selected>1024x1024</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- D3 -->
+      <div id="d3" class="options visible">
+        <label>Size
+          <select id="d3-size">
+            <option selected>1024x1024</option>
+            <option>1024x1792</option><option>1792x1024</option>
+          </select>
+        </label>
+        <label>Quality
+          <select id="d3-quality">
+            <option selected>standard</option><option>hd</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- gpt-image-1 -->
+      <div id="gpti" class="options">
+        <label>Number <input id="gpti-n" type="number" min="1" max="4" value="1" style="width:60px"></label>
+        <label>Size
+          <select id="gpti-size">
+            <option selected>1024x1024</option>
+            <option>1024x1536</option><option>1536x1024</option>
+          </select>
+        </label>
+        <label>Quality
+          <select id="gpti-quality">
+            <option selected>high</option><option>medium</option><option>low</option>
+          </select>
+        </label>
+        <label>Background
+          <select id="gpti-bg">
+            <option>transparent</option><option selected>opaque</option>
+          </select>
+        </label>
+      </div>
+    </fieldset>
+
+    <button id="go">Generate 🚀</button>
+  </aside>
+
+  <!-- ---------- main ---------- -->
+  <main id="main"><div id="gallery"></div></main>
+
+  <!-- ---------- modal ---------- -->
+  <div id="modal">
+    <span class="close" title="Close (Esc)">✕</span>
+    <img src="" alt="">
+  </div>
+
+<script>
+const $ = id=>document.getElementById(id);
+
+/* option toggling */
+const modelSel=$('model'), d2=$('d2'), d3=$('d3'), gpti=$('gpti');
+modelSel.onchange=()=>{ const m=modelSel.value;
+  d2.classList.toggle('visible',m==='dall-e-2');
+  d3.classList.toggle('visible',m==='dall-e-3');
+  gpti.classList.toggle('visible',m==='gpt-image-1');
+};modelSel.onchange();
+
+/* helpers */
+const src = b64=>'data:image/png;base64,'+b64;
+const g   = $('gallery');
+
+/* grid/row logic */
+function layout(count,orientation){
+  g.className = '';
+  g.style.gridTemplateColumns = '';
+  g.style.gridTemplateRows = '';
+  g.style.justifyItems = '';
+  g.style.alignItems = '';
+
+  if(count === 1){
+    g.classList.add('single');
+    return;
+  }
+
+  if(orientation === 'tall'){
+    g.classList.add('row-mode'); // flex row, scroll-x if needed
+    return;
+  }
+
+  // 2, 3, 4 images: display a 2x2 grid like Windows logo
+  g.style.display = 'grid';
+  g.style.gridTemplateColumns = 'repeat(2, 1fr)';
+  g.style.gridTemplateRows = count > 2 ? 'repeat(2, 1fr)' : '1fr';
+  g.style.justifyItems = 'center';
+  g.style.alignItems = 'center';
+}
+
+/* build request from form */
+function buildBody(){
+  const model=modelSel.value;
+  const body={model,prompt:$('prompt').value.trim()};
+  if(model==='dall-e-2'){
+    body.size=$('d2-size').value;
+  }else if(model==='dall-e-3'){
+    body.size=$('d3-size').value;
+    const q=$('d3-quality').value; if(q==='hd') body.quality='hd';
+  }else{
+    body.n=+$('gpti-n').value;
+    body.size=$('gpti-size').value;
+    body.quality=$('gpti-quality').value;
+    body.background=$('gpti-bg').value;
+  }
+  return body;
+}
+
+/* modal */
+const modal=$('modal'), modalImg=modal.querySelector('img');
+g.onclick=e=>{ if(e.target.tagName==='IMG'){modalImg.src=e.target.src;modal.style.display='flex';}};
+$('modal').onclick=e=>{ if(e.target===modal||e.target.classList.contains('close')) modal.style.display='none';};
+window.onkeydown=e=>{ if(e.key==='Escape') modal.style.display='none'; };
+
+$('go').onclick=async ()=>{
+  const body=buildBody();
+  if(!body.prompt){alert('Enter a prompt');return;}
+  $('go').disabled=true; g.innerHTML='<p>Generating…</p>';
+
+  try{
+    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(await r.text());
+    const {images}=await r.json(); if(!images?.length) throw new Error('No images');
+    /* measure orientation using first image */
+    const first=new Image();
+    first.src=src(images[0]);
+    first.onload=()=>{
+      const orientation=first.naturalHeight>first.naturalWidth?'tall':(first.naturalWidth>first.naturalHeight?'wide':'square');
+      g.innerHTML=''; layout(images.length,orientation);
+      images.forEach((b64,i)=>{
+        const img=i===0?first:new Image();
+        if(i!==0) img.src=src(b64);
+        g.appendChild(img);
+      });
+    };
+  }catch(e){alert(e.message);g.innerHTML='';}
+  finally{$('go').disabled=false;}
+};
+</script>
+</body>
+</html>
